@@ -317,7 +317,7 @@ class InversionResult(dict):
         gca.xaxis.set_major_formatter(ScalarFormatter())
         gca.xaxis.set_minor_formatter(ScalarFormatter())
         return period, curve
-     def return_curve(
+    def return_curve(
         self,
         period,
         mode,
