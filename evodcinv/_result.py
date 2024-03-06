@@ -328,7 +328,7 @@ class InversionResult(dict):
         n_jobs=-1,
         dc=0.001,
         dt=0.01,
-        yaxis='velocity'
+        yaxis='velocity',
         xaxis= 'period'
     ):
         """
