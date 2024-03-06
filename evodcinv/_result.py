@@ -316,7 +316,7 @@ class InversionResult(dict):
         # Disable exponential tick labels
         gca.xaxis.set_major_formatter(ScalarFormatter())
         gca.xaxis.set_minor_formatter(ScalarFormatter())
-        return period, curves
+        return period, curve
 
     def plot_model(
         self,
