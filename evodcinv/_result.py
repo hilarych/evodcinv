@@ -317,6 +317,126 @@ class InversionResult(dict):
         gca.xaxis.set_major_formatter(ScalarFormatter())
         gca.xaxis.set_minor_formatter(ScalarFormatter())
         return period, curve
+     def return_curve(
+        self,
+        period,
+        mode,
+        wave,
+        type,
+        show="best",
+        stride=1,
+        n_jobs=-1,
+        dc=0.001,
+        dt=0.01,
+        yaxis='velocity'
+        xaxis= 'period'
+    ):
+        """
+        Return calculated data curves. 
+
+        Parameters
+        ----------
+        period : array_like
+            Periods (in s).
+        mode : int, optional, default 0
+            Mode number (0 if fundamental).
+        wave : str {'love', 'rayleigh'}, optional, default 'rayleigh'
+            Wave type.
+        type : str {'phase', 'group', 'ellipticity'}, optional, default 'phase'
+            Data type.
+        show : str {'best', 'all'}, optional, default 'best'
+            Model to use to calculate data curves.
+        stride : int, optional, default 1
+            Number of models to skip.
+        n_jobs : int, optional, default -1
+            Number of CPU cores to calculate data curves in parallel. Supply -1 to use all available CPU cores. Only used if ``show = "all"``.
+        dc : scalar, optional, default 0.001
+            Phase velocity increment for root finding.
+        dt : scalar, optional, default 0.01
+            Frequency increment (%) for calculating group velocity.
+
+
+        """
+        from joblib import Parallel, delayed
+
+        if type not in {"phase", "group", "ellipticity"}:
+            raise ValueError()
+        if show not in {"best", "all"}:
+            raise ValueError()
+
+        if type in {"phase", "group"}:
+
+            def get_y(thickness, velocity_p, velocity_s, density):
+                c = surf96(
+                    period,
+                    thickness,
+                    velocity_p,
+                    velocity_s,
+                    density,
+                    mode,
+                    itype[type],
+                    ifunc["dunkin"][wave],
+                    dc,
+                    dt,
+                )
+                idx = c > 0.0
+
+                return c[idx]
+
+        else:
+
+            def get_y(thickness, velocity_p, velocity_s, density):
+                ell = Ellipticity(
+                    thickness,
+                    velocity_p,
+                    velocity_s,
+                    density,
+                    "dunkin",
+                    dc,
+                )
+                rel = ell(period, mode)
+
+                return np.abs(rel.ellipticity)
+
+        if xaxis not in {"frequency", "period"}:
+            raise ValueError()
+        if yaxis not in {"slowness", "velocity"}:
+            raise ValueError()
+        x = 1.0 / period if xaxis == "frequency" else period
+
+        if show == "all":
+            # Sort models
+            idx = np.argsort(self.misfits)[::-1]
+            models = self.models[idx]
+            misfits = self.misfits[idx]
+
+            # Skip models
+            models = models[::stride]
+            misfits = misfits[::stride]
+
+            # Generate and plot curves
+            curves = Parallel(n_jobs=n_jobs)(
+                delayed(get_y)(*model.T) for model in models
+            )
+            for curve, misfit in zip(curves, misfits):
+                y = (
+                    1.0 / curve
+                    if "type" != "ellipticity" and yaxis == "slowness"
+                    else curve
+                )
+                #plot(x[: len(y)], y, color=smap.to_rgba(misfit), **_plot_args)
+            return period, curves
+        elif show == "best":
+            curve = get_y(*self.model.T)
+            y = (
+                1.0 / curve
+                if "type" != "ellipticity" and yaxis == "slowness"
+                else curve
+            )
+            #plot(x[: len(y)], y, **_plot_args)
+
+            return period, curve
+
 
     def plot_model(
         self,
